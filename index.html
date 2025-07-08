@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Sinais Bac Bo - Ao Vivo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #0b0c10;
+      color: #eee;
+      font-family: 'Segoe UI', sans-serif;
+      overflow-x: auto;
+    }
+    h1 {
+      text-align: center;
+      color: #00ff99;
+      text-shadow: 0 0 10px #00ff99;
+    }
+    .container {
+      max-width: 1200px;
+      margin: auto;
+    }
+    .game-area {
+      display: flex;
+      align-items: flex-start;
+      padding-bottom: 20px;
+    }
+    .line-numbers {
+      display: flex;
+      flex-direction: column;
+      margin-right: 10px;
+    }
+    .line-numbers div {
+      height: 45px;
+      line-height: 45px;
+      text-align: center;
+      color: #666;
+      font-weight: bold;
+    }
+    .columns {
+      display: flex;
+    }
+    .column {
+      display: flex;
+      flex-direction: column;
+      margin-right: 4px;
+      align-items: center;
+    }
+    .cell {
+      width: 45px;
+      height: 45px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      margin-bottom: 4px;
+      color: #fff;
+    }
+    .Player { background-color: #0044cc; color: #cce5ff; }
+    .Banker { background-color: #cc0000; color: #ffcccc; }
+    .Tie { background-color: #d4af37; color: #000; }
+    .column-number {
+      color: #00ff99;
+      font-size: 12px;
+      margin-top: 4px;
+    }
+    .signals {
+      background: #1a1f23;
+      padding: 10px;
+      border-radius: 8px;
+      max-height: 240px;
+      overflow-y: auto;
+      font-size: 14px;
+    }
+    .signal-entry {
+      margin-bottom: 8px;
+      background: #2c3238;
+      padding: 8px;
+      border-left: 4px solid #00ff99;
+      border-radius: 4px;
+    }
+    .floating-dollar {
+      position: fixed;
+      font-size: 24px;
+      color: #00ff99aa;
+      animation: floatUp 5s linear infinite;
+      font-weight: bold;
+      pointer-events: none;
+    }
+    .timer {
+      text-align: center;
+      font-size: 16px;
+      margin-bottom: 10px;
+      color: #00ffcc;
+    }
+    .stats {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #88ffdd;
+    }
+    @keyframes floatUp {
+      0% { transform: translateY(100vh); opacity: 1; }
+      100% { transform: translateY(-20vh); opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Sinais Bac Bo Ao Vivo - Diego + IA</h1>
+  <div class="container">
+    <div class="timer" id="timer">Próxima rodada em: 20s</div>
+    <div class="game-area">
+      <div class="line-numbers">
+        <div>1</div><div>2</div><div>3</div>
+        <div>4</div><div>5</div><div>6</div>
+      </div>
+      <div class="columns" id="columnsContainer"></div>
+    </div>
+    <div class="signals" id="signalsArea">Nenhum sinal detectado ainda.</div>
+    <div class="stats" id="stats"></div>
+  </div>
+  <script>
+    const columnsContainer = document.getElementById('columnsContainer');
+    const signalsArea = document.getElementById('signalsArea');
+    const timerDisplay = document.getElementById('timer');
+    const statsDisplay = document.getElementById('stats');
+    let history = [], signalsLog = [], acertos = 0, totalSinais = 0;
+    let timer = 20;
+
+    function generateColumn() {
+      const r = () => Math.random();
+      return Array.from({ length: 6 }, () => {
+        const n = r();
+        return n < 0.1 ? 'Tie' : n < 0.55 ? 'Banker' : 'Player';
+      });
+    }
+
+    function addColumn(col) {
+      history.push(col);
+      if (history.length > 30) history.shift();
+
+      const colDiv = document.createElement('div');
+      colDiv.classList.add('column');
+      col.forEach(item => {
+        const cell = document.createElement('div');
+        cell.className = `cell ${item}`;
+        cell.textContent = item[0];
+        colDiv.appendChild(cell);
+      });
+      const num = document.createElement('div');
+      num.className = 'column-number';
+      num.textContent = history.length;
+      colDiv.appendChild(num);
+      columnsContainer.appendChild(colDiv);
+    }
+
+    function detectSignals() {
+      if (history.length < 3) return;
+      const now = new Date().toLocaleTimeString();
+      let newSignals = [];
+
+      for (let i = 0; i < history.length - 1; i++) {
+        const c1 = history[i], c2 = history[i + 1];
+        if ((c1[4] === 'Banker' && c1[5] === 'Player' && c2[0] === 'Player') ||
+            (c1[4] === 'Player' && c1[5] === 'Banker' && c2[0] === 'Banker')) {
+          newSignals.push(`[${now}] Estratégia 1 — Coluna ${i+2}, Linha 2: Apostar ${c2[0]} (Proteção: TIE)`);
+        }
+      }
+
+      for (let i = 0; i < history.length - 2; i++) {
+        const [a, b, c] = [history[i], history[i+1], history[i+2]];
+        if ((a[0]==='Player' && a[1]==='Banker' && b[5]==='Player')) {
+          newSignals.push(`[${now}] Estratégia 2 (V) — Coluna ${i+3}, Linha 1: Apostar BANKER (Proteção: TIE)`);
+        }
+        if ((a[0]==='Banker' && a[1]==='Player' && b[5]==='Banker')) {
+          newSignals.push(`[${now}] Estratégia 2 (V) — Coluna ${i+3}, Linha 1: Apostar PLAYER (Proteção: TIE)`);
+        }
+      }
+
+      newSignals.forEach(s => {
+        if (!signalsLog.includes(s)) {
+          signalsLog.unshift(s);
+          totalSinais++;
+          if (Math.random() < 0.8) acertos++; // simulação de acerto 80%
+        }
+      });
+
+      renderSignals();
+    }
+
+    function renderSignals() {
+      signalsArea.innerHTML = signalsLog.length
+        ? signalsLog.slice(0, 10).map(s => `<div class='signal-entry'>${s}</div>`).join('')
+        : 'Nenhum sinal detectado ainda.';
+
+      statsDisplay.innerHTML = `Sinais: ${totalSinais} | Acertos: ${acertos} | Assertividade: ${totalSinais ? ((acertos/totalSinais)*100).toFixed(1) : 0}%`;
+    }
+
+    function step() {
+      const newCol = generateColumn();
+      addColumn(newCol);
+      detectSignals();
+    }
+
+    function countdown() {
+      timer--;
+      if (timer <= 0) {
+        timer = 20;
+        step();
+      }
+      timerDisplay.textContent = `Próxima rodada em: ${timer}s`;
+    }
+
+    setInterval(countdown, 1000);
+    for (let i = 0; i < 6; i++) step();
+
+    setInterval(() => {
+      const d = document.createElement('div');
+      d.className = 'floating-dollar';
+      d.textContent = '💵';
+      d.style.left = Math.random() * 90 + 'vw';
+      d.style.top = '100vh';
+      d.style.animationDuration = (3 + Math.random()*3) + 's';
+      d.style.fontSize = (18 + Math.random()*20) + 'px';
+      document.body.appendChild(d);
+      setTimeout(() => d.remove(), 5000);
+    }, 1500);
+  </script>
+</body>
+</html>
